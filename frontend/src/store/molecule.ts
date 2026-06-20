@@ -147,9 +147,65 @@ export const useMoleculeStore = defineStore('molecule', () => {
       .slice(0, 5)
   })
 
+
+  function normalizeForRadar(admet: ADMETProps) {
+    return [
+      Math.max(0, Math.min(100, 100 - Math.abs(admet.logP - 2) * 20)),
+      Math.max(0, Math.min(100, 100 + admet.logS * 20)),
+      Math.max(0, Math.min(100, admet.proteinBinding)),
+      Math.max(0, Math.min(100, admet.bioavailability)),
+      admet.toxicity.includes('高') ? 20 : admet.toxicity.includes('中') ? 50 : 85,
+      admet.metabolicStability === '稳定' ? 85 : admet.metabolicStability === '中等' ? 55 : 25
+    ];
+  }
+
+  const radarChartData = computed(() => {
+    if (!admet.value) return null;
+    const similarWithAdmet = similarMolecules.value.slice(0, 2).map(m => ({
+      name: m.name,
+      data: normalizeForRadar(computeADMET({ mw: m.mw, logP: m.logP, formula: m.formula }))
+    }));
+    return {
+      indicators: [
+        { name: '脂溶性', max: 100 },
+        { name: '溶解度', max: 100 },
+        { name: '蛋白结合', max: 100 },
+        { name: '生物利用', max: 100 },
+        { name: '安全性', max: 100 },
+        { name: '代谢稳定', max: 100 }
+      ],
+      current: {
+        name: currentMolecule.value?.name || '',
+        data: normalizeForRadar(admet.value)
+      },
+      similar: similarWithAdmet
+    };
+  });
+
+  const riskComparisonData = computed(() => {
+    if (!currentMolecule.value || !admet.value) return null;
+    const riskScore = (admet: ADMETProps) => {
+      const logPRisk = admet.logP > 3 ? 3 : admet.logP > 1 ? 2 : 1;
+      const toxRisk = admet.toxicity.includes('高') ? 3 : admet.toxicity.includes('中') ? 2 : 1;
+      const metabRisk = admet.metabolicStability === '不稳定' ? 3 : admet.metabolicStability === '中等' ? 2 : 1;
+      const bioRisk = admet.bioavailability < 30 ? 3 : admet.bioavailability < 50 ? 2 : 1;
+      return (logPRisk + toxRisk + metabRisk + bioRisk) / 4;
+    };
+    const similarWithRisk = similarMolecules.value.slice(0, 4).map(m => {
+      const a = computeADMET({ mw: m.mw, logP: m.logP, formula: m.formula });
+      return { name: m.name, risk: Math.round(riskScore(a) * 33), bioavailability: a.bioavailability, logP: a.logP };
+    });
+    return {
+      categories: [currentMolecule.value.name, ...similarWithRisk.map(m => m.name)],
+      riskScores: [Math.round(riskScore(admet.value) * 33), ...similarWithRisk.map(m => m.risk)],
+      bioavailabilities: [admet.value.bioavailability, ...similarWithRisk.map(m => m.bioavailability)],
+      logPs: [admet.value.logP, ...similarWithRisk.map(m => m.logP)]
+    };
+  });
+
   return {
     molecules, currentMolecule, admet, searchQuery, searchResults, isLoading,
-    filteredMolecules, similarMolecules,
+    filteredMolecules, similarMolecules, radarChartData, riskComparisonData,
     loadMolecules, selectMolecule, searchMolecules
-  }
+  };
 })

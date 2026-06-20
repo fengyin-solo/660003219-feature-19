@@ -28,6 +28,8 @@
     </div>
     <div v-else class="text-slate-500 text-sm">选择分子查看ADMET</div>
 
+    <AdmetCharts />
+
     <div v-if="store.similarMolecules.length > 0" class="mt-4">
       <h4 class="text-xs font-bold text-slate-500 mb-2">相似分子 (Tanimoto)</h4>
       <div class="space-y-1">
@@ -42,5 +44,6 @@
 
 <script setup lang="ts">
 import { useMoleculeStore } from '../store/molecule'
+import AdmetCharts from './AdmetCharts.vue'
 const store = useMoleculeStore()
 </script>
